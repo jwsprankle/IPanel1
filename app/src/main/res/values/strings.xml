@@ -1,3 +1,18 @@
 <resources>
     <string name="app_name">I-Panel1</string>
+    <string name="_0">0</string>
+    <string name="stuff">Stuff</string>
+    <string name="gyro_x">Gyro X:</string>
+    <string name="gyro_y">Gyro Y:</string>
+    <string name="gyro_z">Gyro Z:</string>
+    <string name="mag_x">Mag X:</string>
+    <string name="mag_y">Mag Y:</string>
+    <string name="mag_z">Mag Z:</string>
+    <string name="min">Min.</string>
+    <string name="max">Max</string>
+    <string name="Min2">Min:</string>
+    <string name="max2">Max:</string>
+    <string name="z">Z:</string>
+    <string name="x">X:</string>
+    <string name="y">Y:</string>
 </resources>
