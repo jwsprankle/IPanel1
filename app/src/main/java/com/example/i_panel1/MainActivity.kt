@@ -1,6 +1,8 @@
 package com.example.i_panel1
 
 import android.app.Activity
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Icon
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.DisplayMetrics
@@ -14,11 +16,8 @@ import android.widget.Toast
 import androidx.core.view.marginStart
 import androidx.core.view.marginTop
 import com.example.usb1.McuUsbInterface
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.util.*
 import kotlin.concurrent.timerTask
 import kotlin.math.atan2
@@ -37,15 +36,15 @@ class MainActivity : AppCompatActivity() {
     var magCalbrMid = Axes3()
     var magCalbrScale = axes3_1
 
+
     private val TOUCH_SCALE_FACTOR: Float = 180.0f / 320f
     private var previousX: Float = 0f
     private var previousY: Float = 0f
     private val displayMetrics = DisplayMetrics()
     private var lastTouchAngleDeg = 0.0
     private var gaugeRotationDeg = 0.0
-    private var magAvgStack = MutableList(50) {Axes3()}
+    private var magAvgStack = MutableList(1) {Axes3()}
     private var magAvgNdx = 0
-
     private val gyroScale = (2000.0 * 50 * 2.0) / (Math.pow(2.0, 15.0) * 3330.0)
 
 
@@ -71,6 +70,7 @@ class MainActivity : AppCompatActivity() {
     /* USB system service */
     lateinit var usbDemo: McuUsbInterface
 
+    lateinit var comms: EthComm
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -105,7 +105,6 @@ class MainActivity : AppCompatActivity() {
         magCalMinZ_Text = findViewById(R.id.magCalMinZ)
         magCalMaxZ_Text = findViewById(R.id.magCalMaxZ)
 
-
         reseetCalBtn = findViewById(R.id.button1)
         reseetCalBtn.setOnClickListener {
             magCalbrMin = Axes3(9999.9,9999.9, 9999.9)
@@ -114,9 +113,16 @@ class MainActivity : AppCompatActivity() {
         }
 
 
+        GlobalScope.launch(Dispatchers.IO) {
+            comms = EthComm()
+        }
+
+
         GlobalScope.launch(Dispatchers.Main) {
             startGyroInterface()
         }
+
+
 //        startTimeCounter()
     }
 
@@ -252,8 +258,6 @@ class MainActivity : AppCompatActivity() {
         if (magVal.axisZ > magCalbrMax.axisZ) {
             magCalbrMax.axisZ = magVal.axisZ
         }
-
-
     }
 
     private fun updateMagCalbr() {
@@ -308,23 +312,49 @@ class MainActivity : AppCompatActivity() {
                     updateTextInt(magCalbrMin, magCalMinX_Text, magCalMinY_Text, magCalMinZ_Text)
                     updateTextInt(magCalbrMax, magCalMaxX_Text, magCalMaxY_Text, magCalMaxZ_Text)
 
-                    var curCompass = magScale(magAxesAvg)
-                    var rotAngle = atan2(curCompass.axisY, curCompass.axisX)
-                    rotAngle = (rotAngle * 180.0) / Math.PI
-                    rotAngle = -rotAngle + 90.0
-//                    hdg_gauge.setRotation(rotAngle.toFloat())
+                    var magAvg = magScale(magAxesAvg)
+                    var magHdgRad = atan2(magAvg.axisY, magAvg.axisX)
+                    var magHdgDeg = (Math.toDegrees(-magHdgRad) - 90.0)
+
+                    hdg_gauge.setRotation(-magHdgDeg.toFloat())
 
 
-                    // Rotate dial if over 0.05 deg/sec
-                    if ((gyroAxes.axisZ > 0.05) || (gyroAxes.axisZ  < -0.05)) {
-                        gaugeRotationDeg -= gyroAxes.axisZ
-                        hdg_gauge.setRotation(gaugeRotationDeg.toFloat())
-                    }
+                      gaugeRotationDeg -= gyroAxes.axisZ
+//                      hdg_gauge.setRotation(gaugeRotationDeg.toFloat())
+
+
+//                    magHeading = (atan2(magAvg.axisY, magAvg.axisX) * -180.0) / Math.PI
+//                    magHeading = -magHeading + 90.0
+
+
+
+//                    // Rotate dial if over 0.05 deg/sec
+//                    if ((gyroAxes.axisZ > 0.05) || (gyroAxes.axisZ  < -0.05)) {
+//                        gaugeRotationDeg -= gyroAxes.axisZ
+//                        hdg_gauge.setRotation(gaugeRotationDeg.toFloat())
+//                    }
+//                    else {
+//                        var curCompass = magScale(magAxesAvg)
+//                        var rotAngle = atan2(curCompass.axisY, curCompass.axisX)
+//                        rotAngle = (rotAngle * 180.0) / Math.PI
+//                        rotAngle = -rotAngle + 90.0
+//                        var rotDiff = gaugeRotationDeg - rotAngle
+//                        if ((rotDiff < -1.0) || (rotDiff > 1.0 )) {
+//                            hdg_gauge.setRotation(rotAngle.toFloat())
+//                            gaugeRotationDeg = rotAngle
+//                        }
+//                    }
 
                 }
             }
         }
     }
 
+    suspend fun startEthCommInterface() {
+
+        GlobalScope.launch(Dispatchers.IO) {
+
+        }
+    }
 }
 

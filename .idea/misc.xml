@@ -5,9 +5,10 @@
       <map>
         <entry key="..\:/Dev/Android-Learn/IPanel1/app/src/main/res/drawable-v24/ic_launcher_foreground.xml" value="0.38177083333333334" />
         <entry key="..\:/Dev/Android-Learn/IPanel1/app/src/main/res/drawable/hdgDisp.xml" value="0.38177083333333334" />
+        <entry key="..\:/Dev/Android-Learn/IPanel1/app/src/main/res/drawable/hdg_disp.xml" value="0.222" />
         <entry key="..\:/Dev/Android-Learn/IPanel1/app/src/main/res/drawable/ic_hdg_disp.xml" value="0.14" />
         <entry key="..\:/Dev/Android-Learn/IPanel1/app/src/main/res/drawable/ic_launcher_background.xml" value="0.38177083333333334" />
-        <entry key="..\:/Dev/Android-Learn/IPanel1/app/src/main/res/layout/activity_main.xml" value="0.22" />
+        <entry key="..\:/Dev/Android-Learn/IPanel1/app/src/main/res/layout/activity_main.xml" value="0.14" />
       </map>
     </option>
   </component>
@@ -20,7 +21,7 @@
   <component name="VisualizationToolProject">
     <option name="state">
       <ProjectState>
-        <option name="scale" value="0.1" />
+        <option name="scale" value="0.14" />
       </ProjectState>
     </option>
   </component>
