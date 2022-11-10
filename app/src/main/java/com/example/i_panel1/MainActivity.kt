@@ -1,23 +1,22 @@
 package com.example.i_panel1
 
-import android.app.Activity
-import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.Icon
-import androidx.appcompat.app.AppCompatActivity
+import android.content.IntentFilter
 import android.os.Bundle
 import android.util.DisplayMetrics
+import android.util.Log
 import android.view.MotionEvent
 import android.view.Window
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
-import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.marginStart
 import androidx.core.view.marginTop
 import com.example.usb1.McuUsbInterface
-import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import java.util.*
 import kotlin.concurrent.timerTask
 import kotlin.math.atan2
@@ -67,10 +66,14 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var reseetCalBtn: Button
 
-    /* USB system service */
-    lateinit var usbDemo: McuUsbInterface
+    private lateinit var ethComm: RemoteComm
 
-    lateinit var comms: EthComm
+    /* USB system service */
+    private lateinit var usbDemo: McuUsbInterface
+
+    private val intentFilter = IntentFilter()
+    private val TAG = "MyActivity"
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -82,9 +85,6 @@ class MainActivity : AppCompatActivity() {
 
         hdg_gauge = findViewById(R.id.imageView)
         windowManager.defaultDisplay.getMetrics(displayMetrics)
-
-        // Attach USB interface
-        usbDemo = McuUsbInterface(this)
 
         // Init Gyro text references
         gyroX_Text = findViewById(R.id.gyroX)
@@ -112,18 +112,31 @@ class MainActivity : AppCompatActivity() {
             magCalbrMid = Axes3()
         }
 
+        // Attach ethernet communications
+        ethComm = RemoteComm()
 
-        GlobalScope.launch(Dispatchers.IO) {
-            comms = EthComm()
-        }
+        // Attach USB interface
+        usbDemo = McuUsbInterface(this)
 
-
-        GlobalScope.launch(Dispatchers.Main) {
-            startGyroInterface()
-        }
-
+        startGyroInterface()
 
 //        startTimeCounter()
+
+//        // Indicates a change in the Wi-Fi Direct status.
+//        intentFilter.addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION)
+//
+//        // Indicates a change in the list of available peers.
+//        intentFilter.addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION)
+//
+//        // Indicates the state of Wi-Fi Direct connectivity has changed.
+//        intentFilter.addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION)
+//
+//        // Indicates this device's details have changed.
+//        intentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION)
+//
+//        wifi_p2p_manager = getSystemService(Context.WIFI_P2P_SERVICE) as WifiP2pManager
+//        wifi_p2p_channel = wifi_p2p_manager.initialize(this, mainLooper, null)
+//        wifi_p2p = WifiP2p(wifi_p2p_manager, wifi_p2p_channel)
     }
 
 
@@ -272,88 +285,90 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    suspend fun startGyroInterface() {
+    fun startGyroInterface() {
 
-        GlobalScope.launch(Dispatchers.Main) {
+        GlobalScope.launch(Dispatchers.IO) {
 
             var testCount = 0
             var newData: ByteArray
 
             // Drain existing data
-            usbDemo.drainExisting()
+//            usbDemo.drainExisting()
 
             while(true) {
-                newData = usbDemo.getData(100)
+                newData = ethComm.getData()
+                Log.v(TAG,"Made it: " + newData.size.toString())
+
                 if (newData.isNotEmpty()) {
-
-                    // Get and convert Gyro data
                     gyroAxes = Axes3.create(newData, 0, gyroScale)
-                    gyroAxes.axisZ += -0.012  // Compensate for constant drift
-
-                    // Get raw acc
-                    var rawAccAxes = Axes3.create(newData, 6)
-
-                    // Get raw mag
-                    var rawMagAxes = Axes3.create(newData, 12)
-
-                    // Average mag Axes
-                    calcMagAvg(rawMagAxes)
-
-                    // Update Mag min/max
-                    updateMagScale(magAxesAvg)
-
-                    // Update Mag Calibration
-                    updateMagCalbr()
-
-                    // Update text
-                    updateText(gyroAxes, gyroX_Text, gyroY_Text, gyroZ_Text)
-//                    updateTextInt(rawAccAxes, gyroX_Text, gyroY_Text, gyroZ_Text)
-                    updateTextInt(magScale(magAxesAvg), magX_Text, magY_Text, magZ_Text)
-                    updateTextInt(magCalbrMin, magCalMinX_Text, magCalMinY_Text, magCalMinZ_Text)
-                    updateTextInt(magCalbrMax, magCalMaxX_Text, magCalMaxY_Text, magCalMaxZ_Text)
-
-                    var magAvg = magScale(magAxesAvg)
-                    var magHdgRad = atan2(magAvg.axisY, magAvg.axisX)
-                    var magHdgDeg = (Math.toDegrees(-magHdgRad) - 90.0)
-
-                    hdg_gauge.setRotation(-magHdgDeg.toFloat())
-
-
-                      gaugeRotationDeg -= gyroAxes.axisZ
-//                      hdg_gauge.setRotation(gaugeRotationDeg.toFloat())
-
-
-//                    magHeading = (atan2(magAvg.axisY, magAvg.axisX) * -180.0) / Math.PI
-//                    magHeading = -magHeading + 90.0
-
-
-
-//                    // Rotate dial if over 0.05 deg/sec
-//                    if ((gyroAxes.axisZ > 0.05) || (gyroAxes.axisZ  < -0.05)) {
-//                        gaugeRotationDeg -= gyroAxes.axisZ
-//                        hdg_gauge.setRotation(gaugeRotationDeg.toFloat())
-//                    }
-//                    else {
-//                        var curCompass = magScale(magAxesAvg)
-//                        var rotAngle = atan2(curCompass.axisY, curCompass.axisX)
-//                        rotAngle = (rotAngle * 180.0) / Math.PI
-//                        rotAngle = -rotAngle + 90.0
-//                        var rotDiff = gaugeRotationDeg - rotAngle
-//                        if ((rotDiff < -1.0) || (rotDiff > 1.0 )) {
-//                            hdg_gauge.setRotation(rotAngle.toFloat())
-//                            gaugeRotationDeg = rotAngle
-//                        }
-//                    }
-
                 }
             }
-        }
-    }
 
-    suspend fun startEthCommInterface() {
-
-        GlobalScope.launch(Dispatchers.IO) {
-
+//            while(true) {
+//                newData = usbDemo.getData(100)
+//                if (newData.isNotEmpty()) {
+//
+//                    // Get and convert Gyro data
+//                    gyroAxes = Axes3.create(newData, 0, gyroScale)
+//                    gyroAxes.axisZ += -0.012  // Compensate for constant drift
+//
+//                    // Get raw acc
+//                    var rawAccAxes = Axes3.create(newData, 6)
+//
+//                    // Get raw mag
+//                    var rawMagAxes = Axes3.create(newData, 12)
+//
+//                    // Average mag Axes
+//                    calcMagAvg(rawMagAxes)
+//
+//                    // Update Mag min/max
+//                    updateMagScale(magAxesAvg)
+//
+//                    // Update Mag Calibration
+//                    updateMagCalbr()
+//
+//                    // Update text
+//                    updateText(gyroAxes, gyroX_Text, gyroY_Text, gyroZ_Text)
+////                    updateTextInt(rawAccAxes, gyroX_Text, gyroY_Text, gyroZ_Text)
+//                    updateTextInt(magScale(magAxesAvg), magX_Text, magY_Text, magZ_Text)
+//                    updateTextInt(magCalbrMin, magCalMinX_Text, magCalMinY_Text, magCalMinZ_Text)
+//                    updateTextInt(magCalbrMax, magCalMaxX_Text, magCalMaxY_Text, magCalMaxZ_Text)
+//
+//                    var magAvg = magScale(magAxesAvg)
+//                    var magHdgRad = atan2(magAvg.axisY, magAvg.axisX)
+//                    var magHdgDeg = (Math.toDegrees(-magHdgRad) - 90.0)
+//
+//                    hdg_gauge.setRotation(-magHdgDeg.toFloat())
+//
+//
+//                      gaugeRotationDeg -= gyroAxes.axisZ
+////                      hdg_gauge.setRotation(gaugeRotationDeg.toFloat())
+//
+//
+////                    magHeading = (atan2(magAvg.axisY, magAvg.axisX) * -180.0) / Math.PI
+////                    magHeading = -magHeading + 90.0
+//
+//
+//
+////                    // Rotate dial if over 0.05 deg/sec
+////                    if ((gyroAxes.axisZ > 0.05) || (gyroAxes.axisZ  < -0.05)) {
+////                        gaugeRotationDeg -= gyroAxes.axisZ
+////                        hdg_gauge.setRotation(gaugeRotationDeg.toFloat())
+////                    }
+////                    else {
+////                        var curCompass = magScale(magAxesAvg)
+////                        var rotAngle = atan2(curCompass.axisY, curCompass.axisX)
+////                        rotAngle = (rotAngle * 180.0) / Math.PI
+////                        rotAngle = -rotAngle + 90.0
+////                        var rotDiff = gaugeRotationDeg - rotAngle
+////                        if ((rotDiff < -1.0) || (rotDiff > 1.0 )) {
+////                            hdg_gauge.setRotation(rotAngle.toFloat())
+////                            gaugeRotationDeg = rotAngle
+////                        }
+////                    }
+//
+//                }
+//            }
         }
     }
 }
